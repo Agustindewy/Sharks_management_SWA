@@ -18,7 +18,7 @@ library(marmap)
 library(SDMtune)
 library(terra)
 
-setwd('C:/Users/User1/OneDrive/Research/Conservation SWA/3. Aquatic Conservation. Marine and Freshwater Ecosystems/Nueva carpeta')
+setwd('SET YOUR WORKING DIRECTORY')
 
 # Coastline (spatial polygons) - taken from GSHHG coast database as of June 15, 2017
 coastline <- 'DOWNLOAD Coast shape'
