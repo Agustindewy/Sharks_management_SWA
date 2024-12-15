@@ -18,7 +18,7 @@ library(marmap)
 library(SDMtune)
 library(terra)
 
-setwd('SET WORKING DIRECTORY')
+setwd('C:/Users/User1/OneDrive/Research/Conservation SWA/3. Aquatic Conservation. Marine and Freshwater Ecosystems/Nueva carpeta')
 
 # Coastline (spatial polygons) - taken from GSHHG coast database as of June 15, 2017
 coastline <- 'DOWNLOAD Coast shape'
@@ -41,9 +41,9 @@ sdm_threshold.5 <- function(sdm, occs, type = 'mtp', binary = FALSE){
     thresh <- min(na.omit(occPredVals))
   } else if(type == 'p05'){
     if(length(occPredVals) < 10){
-      p05 <- floor(length(occPredVals) * 0.8)
+      p05 <- floor(length(occPredVals) * 0.95)
     } else {
-      p05 <- ceiling(length(occPredVals) * 0.8)
+      p05 <- ceiling(length(occPredVals) * 0.95)
     }
     thresh <- rev(sort(occPredVals))[p05]
   }
@@ -60,9 +60,9 @@ sdm_threshold.10 <- function(sdm, occs, type = 'mtp', binary = FALSE){
     thresh <- min(na.omit(occPredVals))
   } else if(type == 'p10'){
     if(length(occPredVals) < 10){
-      p10 <- floor(length(occPredVals) * 0.7)
+      p10 <- floor(length(occPredVals) * 0.9)
     } else {
-      p10 <- ceiling(length(occPredVals) * 0.7)
+      p10 <- ceiling(length(occPredVals) * 0.9)
     }
     thresh <- rev(sort(occPredVals))[p10]
   }
@@ -81,6 +81,17 @@ sdm_threshold.10 <- function(sdm, occs, type = 'mtp', binary = FALSE){
 .get_absence <- function(swd) {
   return(swd@data[swd@pa == 0, , drop = FALSE])
 }
+
+# Río de la Plata y Lagoa dos Patos polígonos espaciales
+df_rdp <- data.frame(y = c(-34.2257, -32.5165, -33.9072, -36.0317, -34.2257),
+                     x = c(-60.2998, -58.4014, -55.8800, -58.1127, -60.2998))
+df_lagoa <- data.frame(y = c(-29.7969, -30.2501, -31.1866, -31.7214, -31.9466, -32.1433, -32.2448, -29.7969),
+                       x = c(-51.3938, -50.2811, -50.8794, -51.4996, -51.9246, -52.0806, -52.8042, -51.3938))
+df_mar <- data.frame(xmin = -40, xmax = -30, ymin = -70, ymax = -50)
+df_tierra <- data.frame(xmin = -75, xmax = -65, ymin = -25, ymax = -20)
+
+season <- c('summer', 'autumn', 'winter', 'spring')
+
 
 #------------------------------------ Figure 1 --------------------------------------------------------
 
@@ -2893,7 +2904,7 @@ ggplot() +
         panel.border = element_rect(colour = 'black', fill = NA, linewidth = 0.3))
 ggsave('Figure S5.1a.tiff', dpi = 900, width = 10, height = 10, units = 'cm', device = grDevices::tiff)
 
-# Percentages of area covered by MPAs for G. galeus and N. cepedianus
+# Percentages of area covered by closed areas to fishing for G. galeus and N. cepedianus
 table(getValues(mod_mosaic_10_summer))
 overlap_rdp <- crop(mod_mosaic_10_summer, veda_rdp)
 overlap_rdp <- mask(overlap_rdp, veda_rdp)
@@ -2927,7 +2938,7 @@ ggplot() +
         panel.border = element_rect(colour = 'black', fill = NA, linewidth = 0.3))
 ggsave('Figure S5.1b.tiff', dpi = 900, width = 10, height = 10, units = 'cm', device = grDevices::tiff)
 
-# Percentage of area covered by MPAs for the 4 species
+# Percentage of area covered by closed areas to fishing for the 4 species
 table(getValues(anual_global_10))
 overlap_rdp <- crop(anual_global_10, veda_rdp)
 overlap_rdp <- mask(overlap_rdp, veda_rdp)
@@ -2946,44 +2957,53 @@ overlap_rin <- mask(overlap_rin, veda_rincon)
 
 # Read shapes
 directorio <- 'READ shapes'
-veda_rdp <- readOGR(dsn = directorio, layer = 'Área_de_veda_RdlP')
-veda_rincon <- readOGR(dsn = directorio, layer = 'Área_de_veda_El_Rincón')
+MPAs <- st_read(dsn = directorio, layer = 'areas_protegidas')
+coast <- st_read(dsn = coastline, layer = 'GSHHS_f_L1_SouthAmerica')
 
-# Run the following with the objects loaded from Figures 1, 2, S1.2, & S1.3
-Col <- c('#000004FF', '#781C6DFF', '#ED6925FF', '#FCFFA4FF')
-df_10_summer <- data.frame(coordinates(mod_mosaic_10_summer), as.data.frame(mod_mosaic_10_summer))
+MPAs_2 <- st_line_merge(MPAs)
+MPAs_2 <- st_simplify(MPAs_2)
+MPAs_2 <- st_combine(MPAs_2)
+MPAs_2 <- st_polygonize(MPAs_2)
+MPAs_2 <- st_collection_extract(MPAs_2, "POLYGON") 
+MPAs_2 <- vect(MPAs_2)
+MPAs_2 <- st_as_sf(MPAs_2, "sf")
+MPAs_2 <- st_make_valid(MPAs_2)
+valid_geometries <- st_is_valid(MPAs_2)
+MPAs_2 <- MPAs_2[valid_geometries, ]
+MPAs_2 <- st_combine(MPAs_2)
+coast <- st_as_sf(coast, "sf")
+coast <- st_make_valid(coast)
+coast <- st_combine(coast)
+overlap_mpa <- st_difference(MPAs_2, coast)
+
+# Run the following with the objects loaded from Figures 2, 3, S1.2, & S1.3
+Col <- c('#000004FF', '#280B54FF', '#65156EFF', '#9F2A63FF', '#D44842FF', '#F57D15FF', '#FAC127FF', '#FCFFA4FF')
+df_10 <- data.frame(coordinates(mod_mosaic_10), as.data.frame(mod_mosaic_10))
 ggplot() +
-  geom_tile(data = df_10_summer, aes(x = x, y = y, fill = as.factor(layer))) + 
-  scale_fill_manual(values = Col, na.value = '#000004FF') + 
+  geom_tile(data = df_10, aes(x = x, y = y, fill = as.factor(layer))) + 
+  scale_fill_manual(values = Col, na.value = 'grey95') + 
   geom_polygon(data = df_rdp, aes(x = x, y = y), color = 'grey95', fill = 'grey95', linewidth = 0.75) +
   geom_polygon(data = df_lagoa, aes(x = x, y = y), color = 'grey95', fill = 'grey95',linewidth = 0.1) +
-  geom_polygon(data = coast0, aes(x = long, y = lat, group = group), color = 'grey50', fill = 'white', linewidth = 0.15) +
-  geom_polygon(data = veda_rdp, aes(x = long, y = lat, group = group), color = 'black', fill = NA, linewidth = 0.2) +
-  geom_polygon(data = veda_rincon, aes(x = long, y = lat, group = group), color = 'black', fill = NA, linewidth = 0.2) +
+  geom_sf(data = coast, color = 'grey50', fill = 'white', linewidth = 0.15) +
+  geom_sf(data = overlap_mpa, color = 'darkgreen', fill = 'green', alpha = 0.3, linewidth = 0.4) + 
   geom_rect(data = df_mar, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), fill = 'grey95') +
   geom_rect(data = df_tierra, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), fill = 'white') +
-  scale_y_continuous(name = NULL, breaks = c(-41, -38, -35), labels = c('41º', '38º', '35º')) + 
-  scale_x_continuous(name = NULL, breaks = c(-62, -59, -56), labels = c('62º', '59º', '56º')) +
-  coord_equal(xlim = c(-63.5, -55), ylim = c(-42.5, -34), expand = 0) + 
+  scale_y_continuous(name = NULL, breaks = c(-47, -42, -37), labels = c('47º', '42º', '37º')) + 
+  scale_x_continuous(name = NULL, breaks = c(-68, -63, -58), labels = c('68º', '63º', '58º')) +
+  coord_sf(xlim = c(-70, -55), ylim = c(-51, -34), expand = 0) + 
   theme(panel.background = element_rect(fill = 'transparent'),
         panel.grid = element_blank(), legend.position = 'none',
-        panel.border = element_rect(colour = 'black', fill = NA, linewidth = 0.3))
-ggsave('Figure S5.2a.tiff', dpi = 900, width = 10, height = 10, units = 'cm', device = grDevices::tiff)
+        panel.border = element_rect(colour = 'black', fill = NA, linewidth = 0.35))
+ggsave('Figure S5.2a.tiff', dpi = 900, width = 10.2, height = 10.6, units = 'cm', device = grDevices::tiff)
 
 # Percentages of area covered by MPAs for G. galeus and N. cepedianus
-table(getValues(mod_mosaic_10_summer))
-overlap_rdp <- crop(mod_mosaic_10_summer, veda_rdp)
-overlap_rdp <- mask(overlap_rdp, veda_rdp)
-overlap_rin <- crop(mod_mosaic_10_summer, veda_rincon)
-overlap_rin <- mask(overlap_rin, veda_rincon)
+overlap_mpa_sp <- as(overlap_mpa, "Spatial")
+overlap_mpa_sp <- mask(mod_mosaic_10, overlap_mpa_sp)
+table(getValues(overlap_mpa_sp))
 # Percentage of habitat suitability protected for both species
-(table(getValues(overlap_rdp))[1] + table(getValues(overlap_rin))[2]) * 100 / table(getValues(mod_mosaic_10_summer))[4]
-# Percentage of habitat suitability protected for G. galeus
-(table(getValues(overlap_rdp))[1] + table(getValues(overlap_rin))[1] + table(getValues(overlap_rin))[2]) * 100 / (table(getValues(mod_mosaic_10_summer))[3] + table(getValues(mod_mosaic_10_summer))[4])
-# Percentage of habitat suitability protected for N. cepedianus
-(table(getValues(overlap_rdp))[1] + table(getValues(overlap_rin))[2]) * 100 / (table(getValues(mod_mosaic_10_summer))[2] + table(getValues(mod_mosaic_10_summer))[4])
+table(getValues(overlap_mpa_sp))[8] * 100 / table(getValues(mod_mosaic_10))[8]
 
-# Run the following with the objects loaded from Figures 8.4
+# Run the following with the objects loaded from Figures 8.5
 Col <- c('#000004FF', '#56106EFF', '#BB3754FF', '#F98C0AFF', '#FCFFA4FF')
 df_10 <- data.frame(coordinates(anual_global_10), as.data.frame(anual_global_10))
 ggplot() +
@@ -2991,34 +3011,24 @@ ggplot() +
   scale_fill_manual(values = Col, na.value = '#000004FF') + 
   geom_polygon(data = df_rdp, aes(x = x, y = y), color = 'grey95', fill = 'grey95', linewidth = 0.75) +
   geom_polygon(data = df_lagoa, aes(x = x, y = y), color = 'grey95', fill = 'grey95',linewidth = 0.1) +
-  geom_polygon(data = coast0, aes(x = long, y = lat, group = group), color = 'grey50', fill = 'white', linewidth = 0.15) +
-  geom_polygon(data = veda_rdp, aes(x = long, y = lat, group = group), color = 'black', fill = NA, linewidth = 0.2) +
-  geom_polygon(data = veda_rincon, aes(x = long, y = lat, group = group), color = 'black', fill = NA, linewidth = 0.2) +
+  geom_sf(data = coast, color = 'grey50', fill = 'white', linewidth = 0.15) +
+  geom_sf(data = overlap_mpa, color = 'darkgreen', fill = 'green', alpha = 0.3, linewidth = 0.4) + 
   geom_rect(data = df_mar, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), fill = 'grey95') +
   geom_rect(data = df_tierra, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), fill = 'white') +
-  scale_y_continuous(name = NULL, breaks = c(-41, -38, -35), labels = c('41º', '38º', '35º')) + 
-  scale_x_continuous(name = NULL, breaks = c(-62, -59, -56), labels = c('62º', '59º', '56º')) +
-  coord_equal(xlim = c(-63.5, -55), ylim = c(-42.5, -34), expand = 0) + 
+  scale_y_continuous(name = NULL, breaks = c(-47, -42, -37), labels = c('47º', '42º', '37º')) + 
+  scale_x_continuous(name = NULL, breaks = c(-68, -63, -58), labels = c('68º', '63º', '58º')) +
+  coord_sf(xlim = c(-70, -55), ylim = c(-51, -34), expand = 0) + 
   theme(panel.background = element_rect(fill = 'transparent'),
         panel.grid = element_blank(), legend.position = 'none',
         panel.border = element_rect(colour = 'black', fill = NA, linewidth = 0.3))
 ggsave('Figure S5.2b.tiff', dpi = 900, width = 10, height = 10, units = 'cm', device = grDevices::tiff)
 
-# Percentage of area covered by MPAs for the 4 species
-table(getValues(anual_global_10))
-overlap_rdp <- crop(anual_global_10, veda_rdp)
-overlap_rdp <- mask(overlap_rdp, veda_rdp)
-overlap_rin <- crop(anual_global_10, veda_rincon)
-overlap_rin <- mask(overlap_rin, veda_rincon)
-
-# Percentage of habitat suitability for 4 protected species
-(table(getValues(overlap_rdp))[1] + table(getValues(overlap_rin))[2]) * 100 / table(getValues(anual_global_10))[5]
-# Percentage of habitat suitability for 3 protected species
-(table(getValues(overlap_rdp))[1] + table(getValues(overlap_rin))[1] + table(getValues(overlap_rin))[2]) * 100 / (table(getValues(anual_global_10))[4] + table(getValues(anual_global_10))[5])
+# Percentages of area covered by MPAs for G. galeus and N. cepedianus
+overlap_mpa_sp <- as(overlap_mpa, "Spatial")
+overlap_mpa_sp <- mask(anual_global_10, overlap_mpa_sp)
+table(getValues(overlap_mpa_sp))
+# Percentage of habitat suitability protected for both species
+table(getValues(overlap_mpa_sp))[5] * 100 / table(getValues(anual_global_10))[5]
 
 
 #------------------------------------ END ---------------------------------------
-
-
-
-
